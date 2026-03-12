@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>JLB Asset Management | Plataforma de Estratégia e Investimentos</title>
+    <meta
+      name="description"
+      content="Plataforma profissional da JLB Asset Management para análise de ações, renda fixa, derivativos e simulação de estratégias de longo prazo."
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <script defer src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+    <script defer src="app.js"></script>
+  </head>
+  <body>
+    <header class="topbar">
+      <div class="brand">
+        <span class="logo-dot"></span>
+        <div>
+          <strong>JLB Asset Management</strong>
+          <small>Research • Portfolio • Performance</small>
+        </div>
+      </div>
+      <button id="refresh-market" class="btn-secondary">Atualizar Mercado</button>
+    </header>
+
+    <section class="hero">
+      <h1>Dashboard Profissional de Investimentos</h1>
+      <p>
+        Acompanhe ativos, compare estratégias e simule cenários com base em
+        correlação, covariância, juros compostos e diversificação global.
+      </p>
+      <div class="kpis" id="kpi-strip"></div>
+    </section>
+
+    <main class="layout">
+      <section class="card">
+        <div class="card-head">
+          <h2>Radar de Ações e ETFs (Brasil + Exterior)</h2>
+          <small id="market-status">Carregando...</small>
+        </div>
+        <p class="muted">
+          Cotações, DY e variação (%). Se a API falhar, o sistema exibe fallback
+          educativo para manter a experiência funcional.
+        </p>
+        <div id="stock-grid" class="stock-grid"></div>
+      </section>
+
+      <section class="card">
+        <h2>Análise Quantitativa: Correlação e Covariância</h2>
+        <div class="formula-bar">
+          <code>Cov(X,Y) = Σ((Xi−μx)(Yi−μy)) / (n−1)</code>
+          <code>Corr(X,Y) = Cov(X,Y) / (σx · σy)</code>
+          <code>Juros compostos: M = P·(1+i)^n</code>
+        </div>
+
+        <div class="inputs split">
+          <label>Série X <textarea id="serieX">12,13,15,14,18,21,22,25</textarea></label>
+          <label>Série Y <textarea id="serieY">10,11,13,12,17,19,21,24</textarea></label>
+        </div>
+
+        <button id="calc-corr" class="btn-primary">Calcular análise</button>
+        <div id="corr-result" class="result"></div>
+      </section>
+
+      <section class="card">
+        <h2>Simulador Avançado de Renda Fixa e Exterior</h2>
+        <div class="inputs grid-3">
+          <label>Valor inicial (R$) <input id="initial" type="number" value="30000" /></label>
+          <label>Aporte mensal (R$) <input id="monthly" type="number" value="500" /></label>
+          <label>Prazo (anos) <input id="years" type="number" value="6" min="1" max="40" /></label>
+          <label>CDI anual (%) <input id="cdi" type="number" value="10.5" step="0.1" /></label>
+          <label>IPCA anual (%) <input id="ipca" type="number" value="4.5" step="0.1" /></label>
+          <label>Retorno fundos exterior (% a.a.) <input id="extReturn" type="number" value="8.0" step="0.1" /></label>
+        </div>
+
+        <button id="simulate" class="btn-primary">Simular cenários</button>
+        <canvas id="simChart" height="105"></canvas>
+        <div id="sim-result" class="result"></div>
+      </section>
+
+      <section class="card two-col">
+        <div>
+          <h2>ETFs e UCITS: Benefícios de investir no exterior</h2>
+          <ul class="clean-list">
+            <li><strong>Diversificação real:</strong> reduz concentração em risco Brasil.</li>
+            <li><strong>Eficiência:</strong> ETFs têm custo baixo e gestão transparente.</li>
+            <li><strong>UCITS:</strong> padrão regulatório europeu robusto ao investidor.</li>
+            <li><strong>Câmbio:</strong> protege parte do patrimônio em moeda forte.</li>
+          </ul>
+        </div>
+        <div>
+          <h2>Derivativos e Futuros (cenários de bolsa)</h2>
+          <p class="muted">Projeção de resultado de uma posição (R$) sob 3 cenários.</p>
+          <div class="inputs grid-2">
+            <label>Notional da posição (R$) <input id="notional" type="number" value="100000" /></label>
+            <label>Alavancagem (x) <input id="leverage" type="number" value="2" step="0.1" /></label>
+          </div>
+          <button id="recalc-deriv" class="btn-secondary">Recalcular cenários</button>
+          <canvas id="derivChart" height="150"></canvas>
+        </div>
+      </section>
+
+      <section class="card">
+        <h2>Calendário de aportes (12 meses)</h2>
+        <p class="muted">Alternando aportes entre R$300 e R$500 em CDB de 104% CDI.</p>
+        <div id="calendar" class="calendar"></div>
+      </section>
+
+      <section class="card">
+        <h2>Perfil de comportamento financeiro no Brasil (estimativa educacional)</h2>
+        <p class="muted">
+          Dados ilustrativos para análise estratégica: investe fora, investe local,
+          empreende, mantém em poupança/previdência e sem investimento ativo.
+        </p>
+        <canvas id="behaviorChart" height="115"></canvas>
+      </section>
+    </main>
+  </body>
+</html>
