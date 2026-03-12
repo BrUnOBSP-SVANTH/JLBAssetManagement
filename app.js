@@ -1,227 +1,93 @@
-const trackedTickers = ["PETR4", "VALE3", "ITUB4", "BBAS3", "AAPL", "MSFT", "SPY", "IVV", "QQQ", "BOVA11"];
-const stockGrid = document.getElementById("stock-grid");
-const marketStatus = document.getElementById("market-status");
-const kpiStrip = document.getElementById("kpi-strip");
-
-const fallbackAssets = [
-  { symbol: "PETR4", regularMarketPrice: 39.2, regularMarketChangePercent: 1.4, dividendYield: 0.11, logourl: "https://raw.githubusercontent.com/thefintz/icones-b3/main/icones/PETR4.png" },
-  { symbol: "VALE3", regularMarketPrice: 65.8, regularMarketChangePercent: -0.8, dividendYield: 0.09, logourl: "https://raw.githubusercontent.com/thefintz/icones-b3/main/icones/VALE3.png" },
-  { symbol: "ITUB4", regularMarketPrice: 34.5, regularMarketChangePercent: 0.5, dividendYield: 0.07, logourl: "https://raw.githubusercontent.com/thefintz/icones-b3/main/icones/ITUB4.png" },
-  { symbol: "SPY", regularMarketPrice: 510.0, regularMarketChangePercent: 0.3, dividendYield: 0.014, logourl: "https://logo.clearbit.com/ssga.com" },
+const navLinks = [
+  ['Home','index.html'],['Mercado','mercado.html'],['Ações','acoes.html'],['ETFs','etfs.html'],['Renda Fixa','renda-fixa.html'],['Simulador','simulador.html'],['Derivativos','derivativos.html'],['Estatísticas','estatisticas.html'],['Educação','educacao.html'],['Calculadoras','calculadoras.html'],['Dashboard','dashboard.html'],['Sobre','sobre.html'],['Contato','contato.html']
 ];
+function buildLayout(active){
+  const nav = document.getElementById('main-nav');
+  if (nav) nav.innerHTML = navLinks.map(([t,h]) => `<a class="${h===active?'active':''}" href="${h}">${t}</a>`).join('');
+  const year = document.getElementById('year'); if(year) year.textContent = new Date().getFullYear();
+}
+const brl = new Intl.NumberFormat('pt-BR',{style:'currency',currency:'BRL'});
+const pct = n => `${n.toFixed(2)}%`;
 
-const formatCurrency = (value) => `R$ ${Number(value).toLocaleString("pt-BR", { maximumFractionDigits: 2 })}`;
-
-function parseSeries(text) {
-  return text.split(",").map((n) => Number(n.trim())).filter((n) => !Number.isNaN(n));
+function lineChart(id, labels, data, label='Evolução'){
+  const el = document.getElementById(id); if(!el || !window.Chart) return;
+  new Chart(el,{type:'line',data:{labels,datasets:[{label,data,borderColor:'#00a8ff',backgroundColor:'rgba(0,168,255,.15)',fill:true,tension:.3}]},options:{plugins:{legend:{labels:{color:'#e6edf7'}}},scales:{x:{ticks:{color:'#9fb2cf'}},y:{ticks:{color:'#9fb2cf'}}}}});
+}
+function barChart(id, labels, data){
+  const el = document.getElementById(id); if(!el || !window.Chart) return;
+  new Chart(el,{type:'bar',data:{labels,datasets:[{label:'Percentual',data,backgroundColor:['#00a8ff','#d4af37','#2fd67a','#ff5e7a','#5f7cff']}]},options:{plugins:{legend:{labels:{color:'#e6edf7'}}},scales:{x:{ticks:{color:'#9fb2cf'}},y:{ticks:{color:'#9fb2cf'}}}}});
 }
 
-function mean(arr) {
-  return arr.reduce((sum, item) => sum + item, 0) / arr.length;
-}
+function setupSimuladores(){
+  const form = document.getElementById('sim-form');
+  if(form){
+    form.addEventListener('submit',e=>{
+      e.preventDefault();
+      const c = +document.getElementById('capital').value;
+      const aporte = +document.getElementById('aporte').value;
+      const anos = +document.getElementById('anos').value;
+      const taxa = +document.getElementById('taxa').value/100;
+      let total = c; const points=[]; const labels=[];
+      for(let m=1;m<=anos*12;m++){ total = total*(1+taxa/12)+aporte; if(m%12===0){points.push(total);labels.push(`${m/12}a`);} }
+      document.getElementById('sim-result').innerHTML = `<strong>Valor final:</strong> ${brl.format(total)}<br><strong>Rentabilidade:</strong> ${pct(((total-(c+aporte*anos*12))/(c+aporte*anos*12))*100)}`;
+      lineChart('sim-chart',labels,points,'Crescimento');
+    });
+  }
 
-function variance(arr, avg) {
-  return arr.reduce((sum, item) => sum + (item - avg) ** 2, 0) / (arr.length - 1);
-}
+  const cdb = document.getElementById('cdb-form');
+  if(cdb){
+    cdb.addEventListener('submit',e=>{
+      e.preventDefault();
+      const inicial = +document.getElementById('cdb-capital').value;
+      const anos = +document.getElementById('cdb-prazo').value;
+      const cdi = 0.105, taxa = cdi*1.04;
+      const montante = inicial*Math.pow(1+taxa,anos);
+      document.getElementById('cdb-result').textContent = `CDB 104% CDI estimado: ${brl.format(montante)} (${anos} ano(s)).`;
+    });
+  }
 
-function renderKpis(results) {
-  const valid = results.filter((a) => typeof a.regularMarketChangePercent === "number");
-  const avgChange = valid.length ? valid.reduce((s, a) => s + a.regularMarketChangePercent, 0) / valid.length : 0;
-  const best = valid.reduce((max, a) => (a.regularMarketChangePercent > (max?.regularMarketChangePercent ?? -Infinity) ? a : max), null);
-  const worst = valid.reduce((min, a) => (a.regularMarketChangePercent < (min?.regularMarketChangePercent ?? Infinity) ? a : min), null);
+  const corr = document.getElementById('corr-form');
+  if(corr){
+    corr.addEventListener('submit',e=>{
+      e.preventDefault();
+      const x = document.getElementById('serieX').value.split(',').map(Number);
+      const y = document.getElementById('serieY').value.split(',').map(Number);
+      if(x.length!==y.length){document.getElementById('corr-result').textContent='As séries devem ter o mesmo tamanho.'; return;}
+      const mean = arr => arr.reduce((a,b)=>a+b,0)/arr.length;
+      const mx=mean(x), my=mean(y);
+      const cov = x.reduce((s,v,i)=>s+((v-mx)*(y[i]-my)),0)/x.length;
+      const sx = Math.sqrt(x.reduce((s,v)=>s+((v-mx)**2),0)/x.length);
+      const sy = Math.sqrt(y.reduce((s,v)=>s+((v-my)**2),0)/y.length);
+      const corrv = cov/(sx*sy);
+      document.getElementById('corr-result').innerHTML = `Covariância: <strong>${cov.toFixed(4)}</strong><br>Correlação: <strong>${corrv.toFixed(4)}</strong>`;
+      lineChart('corr-chart',x.map((_,i)=>`P${i+1}`),x,'Ativo X');
+    });
+  }
 
-  kpiStrip.innerHTML = `
-    <article class="kpi"><span>Ativos monitorados</span><strong>${results.length}</strong></article>
-    <article class="kpi"><span>Variação média</span><strong>${avgChange.toFixed(2)}%</strong></article>
-    <article class="kpi"><span>Melhor ativo</span><strong>${best ? `${best.symbol} (${best.regularMarketChangePercent.toFixed(2)}%)` : "N/D"}</strong></article>
-    <article class="kpi"><span>Pior ativo</span><strong>${worst ? `${worst.symbol} (${worst.regularMarketChangePercent.toFixed(2)}%)` : "N/D"}</strong></article>
-  `;
-}
-
-function renderStocks(results, sourceLabel) {
-  stockGrid.innerHTML = results
-    .map((asset) => {
-      const price = typeof asset.regularMarketPrice === "number" ? asset.regularMarketPrice : 0;
-      const dy = typeof asset.dividendYield === "number" ? `${(asset.dividendYield * 100).toFixed(2)}%` : "N/D";
-      const roi = typeof asset.regularMarketChangePercent === "number" ? asset.regularMarketChangePercent : 0;
-      const trend = roi >= 0 ? "up" : "down";
-      return `
-      <article class="stock">
-        <div class="stock-top">
-          <img src="${asset.logourl || "https://placehold.co/40x40"}" alt="Logo ${asset.symbol}" onerror="this.src='https://placehold.co/40x40'" />
-          <strong>${asset.symbol}</strong>
-          <span class="badge ${trend}">${roi.toFixed(2)}%</span>
-        </div>
-        <div>Preço: <strong>${formatCurrency(price)}</strong></div>
-        <div>Dividend Yield: <strong>${dy}</strong></div>
-        <div>ROI diário: <strong>${roi.toFixed(2)}%</strong></div>
-      </article>`;
-    })
-    .join("");
-
-  marketStatus.textContent = `${sourceLabel} • ${new Date().toLocaleTimeString("pt-BR")}`;
-  renderKpis(results);
-}
-
-async function loadStocks() {
-  try {
-    const response = await fetch(`https://brapi.dev/api/quote/${trackedTickers.join(",")}?fundamental=true`);
-    if (!response.ok) throw new Error("Falha de API");
-
-    const payload = await response.json();
-    const results = payload?.results || [];
-    if (!results.length) throw new Error("Sem dados");
-
-    renderStocks(results, "Fonte: Brapi");
-  } catch {
-    renderStocks(fallbackAssets, "Modo contingência");
+  const meta = document.getElementById('meta-form');
+  if(meta){
+    meta.addEventListener('submit',e=>{
+      e.preventDefault();
+      const objetivo = +document.getElementById('objetivo').value;
+      const anos = +document.getElementById('meta-anos').value;
+      const taxa = +document.getElementById('meta-taxa').value/100/12;
+      const n = anos*12;
+      const aporte = objetivo*taxa/(Math.pow(1+taxa,n)-1);
+      document.getElementById('meta-result').textContent = `Aporte mensal estimado: ${brl.format(aporte)}.`;
+    });
   }
 }
 
-let simulationChart;
-function calculateFutureValue({ principal, monthlyContribution, monthlyRate, months, taxRate = 0 }) {
-  let balance = principal;
-  const path = [];
-  for (let i = 0; i < months; i += 1) {
-    balance = balance * (1 + monthlyRate) + monthlyContribution;
-    const gross = balance;
-    const net = gross - Math.max(0, gross - (principal + monthlyContribution * (i + 1))) * taxRate;
-    path.push(Number(net.toFixed(2)));
-  }
-  return path;
-}
+document.addEventListener('DOMContentLoaded',()=>{
+  const active = document.body.dataset.page || 'index.html';
+  buildLayout(active);
+  setupSimuladores();
 
-function runSimulation() {
-  const principal = Number(document.getElementById("initial").value);
-  const monthly = Number(document.getElementById("monthly").value);
-  const years = Number(document.getElementById("years").value);
-  const cdi = Number(document.getElementById("cdi").value) / 100;
-  const ipca = Number(document.getElementById("ipca").value) / 100;
-  const extReturn = Number(document.getElementById("extReturn").value) / 100;
-
-  const months = years * 12;
-  const labels = Array.from({ length: months }, (_, idx) => `M${idx + 1}`);
-
-  const scenarios = [
-    { label: "CDB 104% CDI (líquido)", rate: (cdi * 1.04) / 12, tax: 0.15, color: "#58b8ff" },
-    { label: "LCI/LCA 92% CDI (isento)", rate: (cdi * 0.92) / 12, tax: 0, color: "#53d896" },
-    { label: "Tesouro Selic + IPCA (líquido)", rate: (cdi + ipca) / 12, tax: 0.15, color: "#ffb362" },
-    { label: "Fundos Exterior", rate: extReturn / 12, tax: 0.15, color: "#c6a6ff" },
-  ];
-
-  const datasets = scenarios.map((scenario) => ({
-    label: scenario.label,
-    data: calculateFutureValue({
-      principal,
-      monthlyContribution: monthly,
-      monthlyRate: scenario.rate,
-      months,
-      taxRate: scenario.tax,
-    }),
-    borderColor: scenario.color,
-    pointRadius: 0,
-    tension: 0.22,
-  }));
-
-  if (simulationChart) simulationChart.destroy();
-  simulationChart = new Chart(document.getElementById("simChart"), {
-    type: "line",
-    data: { labels, datasets },
-    options: {
-      responsive: true,
-      plugins: { legend: { labels: { color: "#fff" } } },
-      scales: {
-        x: { ticks: { color: "#d5e8ff", maxTicksLimit: 10 } },
-        y: { ticks: { color: "#d5e8ff" } },
-      },
-    },
-  });
-
-  const summary = datasets.map((dataset) => `${dataset.label}: ${formatCurrency(dataset.data.at(-1))}`).join(" | ");
-  document.getElementById("sim-result").textContent = `Resultado projetado (${years} anos): ${summary}`;
-}
-
-let derivativeChart;
-function buildDerivativeChart() {
-  const notional = Number(document.getElementById("notional").value);
-  const leverage = Number(document.getElementById("leverage").value);
-  const scenarios = [0.12, 0.03, -0.1];
-  const labels = ["Alta (+12%)", "Neutro (+3%)", "Queda (-10%)"];
-  const values = scenarios.map((s) => Number((notional * leverage * s).toFixed(2)));
-
-  if (derivativeChart) derivativeChart.destroy();
-  derivativeChart = new Chart(document.getElementById("derivChart"), {
-    type: "bar",
-    data: {
-      labels,
-      datasets: [{ label: "P/L projetado (R$)", data: values, backgroundColor: ["#58b8ff", "#53d896", "#ff6f83"] }],
-    },
-    options: {
-      plugins: { legend: { labels: { color: "#fff" } } },
-      scales: {
-        x: { ticks: { color: "#d5e8ff" } },
-        y: { ticks: { color: "#d5e8ff" } },
-      },
-    },
-  });
-}
-
-function buildCalendar() {
-  const container = document.getElementById("calendar");
-  const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-  const cdiRate = (0.105 * 1.04) / 12;
-  let balance = 30000;
-
-  container.innerHTML = months
-    .map((month, index) => {
-      const aporte = index % 2 === 0 ? 500 : 300;
-      balance = balance * (1 + cdiRate) + aporte;
-      return `<article class="month"><strong>${month}</strong><br/>Aporte: ${formatCurrency(aporte)}<br/>Saldo estimado: <strong>${formatCurrency(balance)}</strong></article>`;
-    })
-    .join("");
-}
-
-function buildBehaviorChart() {
-  new Chart(document.getElementById("behaviorChart"), {
-    type: "doughnut",
-    data: {
-      labels: ["Investe no exterior", "Investe no Brasil", "Empreende", "Poupança/Previdência", "Sem investimento ativo"],
-      datasets: [{ data: [8, 26, 14, 32, 20], backgroundColor: ["#58b8ff", "#53d896", "#ffb362", "#9eaeff", "#ff6f83"] }],
-    },
-    options: { plugins: { legend: { labels: { color: "#fff" } } } },
-  });
-}
-
-function runCorrelation() {
-  const x = parseSeries(document.getElementById("serieX").value);
-  const y = parseSeries(document.getElementById("serieY").value);
-  const result = document.getElementById("corr-result");
-
-  if (x.length !== y.length || x.length < 2) {
-    result.textContent = "Erro: as séries devem ter mesmo tamanho e no mínimo 2 pontos.";
-    return;
-  }
-
-  const mx = mean(x);
-  const my = mean(y);
-  const cov = x.reduce((sum, xi, index) => sum + (xi - mx) * (y[index] - my), 0) / (x.length - 1);
-  const vx = variance(x, mx);
-  const vy = variance(y, my);
-  const corr = cov / Math.sqrt(vx * vy);
-
-  const interpretation = corr > 0.7 ? "Forte positiva" : corr < -0.7 ? "Forte negativa" : "Moderada/Fraca";
-
-  result.textContent = `Covariância: ${cov.toFixed(4)} | Correlação: ${corr.toFixed(4)} (${interpretation}) | Var(X): ${vx.toFixed(4)} | Var(Y): ${vy.toFixed(4)}`;
-}
-
-document.getElementById("calc-corr").addEventListener("click", runCorrelation);
-document.getElementById("simulate").addEventListener("click", runSimulation);
-document.getElementById("refresh-market").addEventListener("click", loadStocks);
-document.getElementById("recalc-deriv").addEventListener("click", buildDerivativeChart);
-
-loadStocks();
-runCorrelation();
-runSimulation();
-buildDerivativeChart();
-buildCalendar();
-buildBehaviorChart();
+  lineChart('homeChart',['Jan','Fev','Mar','Abr','Mai','Jun'],[100,106,101,112,118,121],'Índice Global');
+  lineChart('marketChart',['09h','10h','11h','12h','13h','14h','15h','16h'],[100,102,98,101,105,108,106,109],'Mercado Intraday');
+  lineChart('stockChart',['2019','2020','2021','2022','2023','2024'],[40,58,75,63,91,118],'Ação Selecionada');
+  lineChart('etfChart',['2019','2020','2021','2022','2023','2024'],[100,112,131,122,138,154],'ETF Histórico');
+  barChart('statsChart',['Bolsa','Renda Fixa','Poupança','Não investem'],[18,29,34,19]);
+  barChart('brIntChart',['Brasil','EUA','Europa'],[38,61,54]);
+  lineChart('dashboardChart',['M1','M2','M3','M4','M5','M6'],[30000,30780,31550,32320,33400,34210],'Carteira');
+});
